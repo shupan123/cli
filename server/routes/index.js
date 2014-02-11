@@ -36,7 +36,12 @@ function Router(app) {
  * @return {[type]}            [description]
  */
 Router.prototype.getVersion = function(version, moduleName) {
-    var versions = fs.readdirSync(path.join(this.moduleRoot, moduleName));
+    var pathVersion = path.join(this.moduleRoot, moduleName);
+console.log('path version', pathVersion);
+    if (!fs.existsSync(pathVersion)) {
+        throw new Error('Module can not exist.');
+    }
+    var versions = fs.readdirSync(pathVersion);
 
     if (version) {
         if (versions.indexOf(version) > -1) {
@@ -74,10 +79,11 @@ Router.prototype.install = function(req, res) {
 
     try {
         version = this.getVersion(version, moduleName);
-
     } catch (e) {
-        res.set('Content-Error', e.message);
-        return res.end();
+        return res.send({error: e.message});
+        // console.log(e.message);
+        // return res.end();
+        // throw new Error(e);
     }
     //文件名加上时间戳，防止并发重名
     file = [moduleName, version, Date.now()].join('-');

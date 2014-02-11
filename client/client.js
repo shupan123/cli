@@ -2,7 +2,7 @@ var http = require('http'),
     url = require('url'),
     fs = require('fs'),
     path = require('path'),
-    URI = 'http://192.168.3.60:13000/';
+    URI = 'http://localhost:13000/';
 
 function Client() {
     this.args = process.argv.slice(2); //取出node的默认参数
@@ -95,27 +95,35 @@ Client.prototype.install = function() {
     http.get(uri, function(res) {
 
         console.log('status:', res.statusCode);
-        
-        var error = res.headers['content-error']; //自定义头
 
-        if (error) {
-            console.log(error);
-            res.on('data', function() {}); //必须写，哪怕是空数据，否则客户端会一直等待服务端数据
-            return;
+        var contentDisposition = res.headers['content-disposition'];
+
+        if (res.headers['content-disposition']) {
+            //从响应头提取文件名
+            contentDisposition = res.headers['content-disposition'];
+
+            var filename = contentDisposition.split(';')[1].split('=')[1],
+                //去除时间戳
+                clearFileName = filename.replace(/(.*)-\d+(\.zip)/, function(a, b, c) {
+                    return b + c;
+                }),
+                writeStream = fs.createWriteStream(path.join(self.moduleRoot, clearFileName));
+
+            console.log(clearFileName, 'installed.');
+
+            res.pipe(writeStream);
+        } else {
+            var chunks = [];
+            var size = 0;
+            res.on('data', function(chunk) {
+                chunks.push(chunk);
+                size += chunk.length;
+            });
+            res.on('end', function() {
+                var buffer = Buffer.concat(chunks, size);
+                console.log(JSON.parse(buffer.toString()).error);
+            });
         }
-
-        //从响应头提取文件名
-        var contentDisposition = res.headers['content-disposition'],
-            filename = contentDisposition.split(';')[1].split('=')[1],
-            //去除时间戳
-            clearFileName = filename.replace(/(.*)-\d+(\.zip)/, function(a, b, c) {
-                return b + c;
-            }),
-            writeStream = fs.createWriteStream(path.join(self.moduleRoot, clearFileName));
-
-        console.log(clearFileName, 'installed.');
-
-        res.pipe(writeStream);
 
     }).on('error', function(e) {
         console.log('Got error:', e.message);
