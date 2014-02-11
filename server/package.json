@@ -8,6 +8,7 @@
   "dependencies": {
     "express": "3.4.8",
     "jade": "*",
-    "archiver": "~0.5.2"
+    "archiver": "~0.5.2",
+    "unzip": "~0.1.9"
   }
 }

@@ -2,7 +2,7 @@ var http = require('http'),
     url = require('url'),
     fs = require('fs'),
     path = require('path'),
-    URI = 'http://localhost:3000/';
+    URI = 'http://192.168.3.60:13000/';
 
 function Client() {
     this.args = process.argv.slice(2); //取出node的默认参数
@@ -58,7 +58,11 @@ Client.prototype.search = function(callback) {
             var result = JSON.parse(buf.toString());
 
             if (Array.isArray(result)) {
-                console.log(result.join(', '));
+                if (result.length) {
+                    console.log(result.join(', '));
+                } else {
+                    console.log('No data.');
+                }
             } else {
                 var key = Object.keys(result)[0];
                 console.log(key, ':', result[key].join(', '));
@@ -185,7 +189,7 @@ Client.prototype.checkVersionExist = function(callback) {
 
         self.args = oldArgs;
 
-        var versions = result[Object.keys(result)[0]];
+        var versions = result[Object.keys(result)[0]] || [];
 
         if (versions.indexOf(self.args[2]) > -1) {
             typeof callback == 'function' && callback.call(self, true);

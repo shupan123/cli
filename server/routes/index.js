@@ -77,9 +77,7 @@ Router.prototype.install = function(req, res) {
 
     } catch (e) {
         res.set('Content-Error', e.message);
-        res.end();
-
-        return;
+        return res.end();
     }
     //文件名加上时间戳，防止并发重名
     file = [moduleName, version, Date.now()].join('-');
@@ -154,13 +152,22 @@ Router.prototype.search = function(req, res) {
     var moduleName = req.params.module || '';
     var modulePath = path.join(this.moduleRoot, moduleName);
     var result;
-    
+
+    // this.makeFolder(modulePath, 'modules');
+
+    if (!fs.existsSync(modulePath)) {
+        return res.send([]);
+    }
+
     fs.readdir(modulePath, function(error, files) {
-        var fileSize = files.length;
         if (error) {
             throw new Error(error);
         }
+        var fileSize = files.length;
         // console.log(files);
+        if (!fileSize) {
+            return res.send([]);
+        }
         files.forEach(function(file, index) {
             fs.stat(path.join(modulePath, file), function(error, stats) {
                 if (error) {
@@ -181,7 +188,7 @@ Router.prototype.search = function(req, res) {
                     res.send(result);
                 }
                 
-            });          
+            });         
         });
         
     });
