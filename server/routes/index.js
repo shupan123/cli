@@ -37,7 +37,7 @@ function Router(app) {
  */
 Router.prototype.getVersion = function(version, moduleName) {
     var pathVersion = path.join(this.moduleRoot, moduleName);
-console.log('path version', pathVersion);
+
     if (!fs.existsSync(pathVersion)) {
         throw new Error('Module can not exist.');
     }
