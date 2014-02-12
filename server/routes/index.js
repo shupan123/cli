@@ -6,29 +6,42 @@ var path = require('path'),
     output = path.resolve(__dirname, '../tmp');
 
 function Router(app) {
+
+    this.app = app;
+
+    // console.log('router', arguments);
     //模块目录
     this.moduleRoot = path.join(app.get('assets'), 'modules');
+
+    this.app.use(this.makeTmp.bind(this));
+    this.app.use(this.service.bind(this));
+    
+}
+Router.prototype.makeTmp = function(req, res, next) {
 
     //创建tmp目录
     fs.exists(output, function(exist) {
         if (!exist) {
             fs.mkdir(output, function(error) {
                 if (error) {
-                    throw new Error(error);
+                    next(new Error(error));
                 }
-
             });
         }
     });
+    next();
+};
 
-    app.get('/', function(req, res) {
+Router.prototype.service = function(req, res, next) {
+    this.app.get('/', function(req, res) {
         res.render('index', {title: 'CLI'});
     });
 
-    app.get('/install/:module/:version?', this.install.bind(this));
-    app.get('/search/:module?', this.search.bind(this));
-    app.post('/publish/:module/:version', this.publish.bind(this));
-}
+    this.app.get('/install/:module/:version?', this.install.bind(this));
+    this.app.get('/search/:module?', this.search.bind(this));
+    this.app.post('/publish/:module/:version', this.publish.bind(this));
+    next();
+};
 /**
  * 得到当前版本，如果不指定版本，默认用最新的版本
  * @param  {[type]} version    [description]
@@ -70,7 +83,7 @@ Router.prototype.getVersion = function(version, moduleName) {
  * @param  {[type]} res [description]
  * @return {[type]}     [description]
  */
-Router.prototype.install = function(req, res) {
+Router.prototype.install = function(req, res, next) {
 
     var moduleName = req.params.module,
         version = req.params.version,
@@ -112,7 +125,7 @@ Router.prototype.install = function(req, res) {
         fileStream.on('end', function() {
             fs.unlink(fullName, function(error) {
                 if (error) {
-                    throw new Error(error);
+                    next(new Error(error));
                 }
             });
         });
@@ -129,7 +142,7 @@ Router.prototype.install = function(req, res) {
 
     archive = archiver('zip');
     archive.on('error', function(err) {
-        throw new Error(err);
+        next(new Error(err));
     });
     archive.pipe(archiverFile);
     //模块版本下的所以文件通过zip压缩
@@ -141,7 +154,7 @@ Router.prototype.install = function(req, res) {
     archive.finalize(function(err, bytes) {
 
         if (err) {
-            throw new Error(err);
+            next(new Error(err));
         }
 
         console.log(bytes + ' total bytes');
@@ -154,7 +167,7 @@ Router.prototype.install = function(req, res) {
  * @param  {[type]} res [description]
  * @return {[type]}     [description]
  */
-Router.prototype.search = function(req, res) {
+Router.prototype.search = function(req, res, next) {
     var moduleName = req.params.module || '';
     var modulePath = path.join(this.moduleRoot, moduleName);
     var result;
@@ -167,7 +180,7 @@ Router.prototype.search = function(req, res) {
 
     fs.readdir(modulePath, function(error, files) {
         if (error) {
-            throw new Error(error);
+            next(new Error(error));
         }
         var fileSize = files.length;
         // console.log(files);
@@ -177,7 +190,7 @@ Router.prototype.search = function(req, res) {
         files.forEach(function(file, index) {
             fs.stat(path.join(modulePath, file), function(error, stats) {
                 if (error) {
-                    throw new Error(error);
+                    next(new Error(error));
                 }
                 //排除文件夹
                 if (!stats.isDirectory()) {
@@ -221,7 +234,7 @@ Router.prototype.makeFolder = function(filePath, start) {
 
 };
 
-Router.prototype.publish = function(req, res) {
+Router.prototype.publish = function(req, res, next) {
     var fileName = req.params.module + '-' + req.params.version + '.zip';
     var filePath = path.join(output, fileName);
     var moduleRoot = this.moduleRoot;
@@ -237,9 +250,9 @@ Router.prototype.publish = function(req, res) {
         var readStream = fs.createReadStream(filePath);
 
         var extract = unzip.Extract({ path: extractPath });
-        extract.on('error', function(err) {  
+        extract.on('error', function(error) {  
             //解压异常处理
-            throw new Error(error); 
+            next(new Error(error)); 
         });  
         extract.on('finish', function() {
             //解压完成处理  
@@ -249,7 +262,7 @@ Router.prototype.publish = function(req, res) {
         readStream.on('end', function() {
             fs.unlink(filePath, function(error) {
                 if (error) {
-                    throw new Error(error);
+                    next(new Error(error));
                 }
             });
         });
