@@ -5,6 +5,7 @@
 
 var express = require('express');
 var Router = require('./routes/index');
+var provide = require('./routes/provide');
 var http = require('http');
 var path = require('path');
 
@@ -21,14 +22,16 @@ app.use(express.logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.methodOverride());
+app.use(provide(app));
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
+
+new Router(app);
 
 // development only
 if ('development' == app.get('env')) {
   app.use(express.errorHandler());
 }
-new Router(app);
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));

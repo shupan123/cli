@@ -2,46 +2,26 @@ var path = require('path'),
     fs = require('fs'),
     archiver = require('archiver'),
     util = require('util'),
-    unzip = require('unzip'),
-    output = path.resolve(__dirname, '../tmp');
+    unzip = require('unzip');
 
 function Router(app) {
 
-    this.app = app;
-
-    // console.log('router', arguments);
+    // console.log('router');
+    //tmp目录
+    this.output = app.get('output');
+    console.log('output', this.output);
     //模块目录
     this.moduleRoot = path.join(app.get('assets'), 'modules');
 
-    this.app.use(this.makeTmp.bind(this));
-    this.app.use(this.service.bind(this));
-    
-}
-Router.prototype.makeTmp = function(req, res, next) {
-
-    //创建tmp目录
-    fs.exists(output, function(exist) {
-        if (!exist) {
-            fs.mkdir(output, function(error) {
-                if (error) {
-                    next(new Error(error));
-                }
-            });
-        }
-    });
-    next();
-};
-
-Router.prototype.service = function(req, res, next) {
-    this.app.get('/', function(req, res) {
+    app.get('/', function(req, res) {
         res.render('index', {title: 'CLI'});
     });
 
-    this.app.get('/install/:module/:version?', this.install.bind(this));
-    this.app.get('/search/:module?', this.search.bind(this));
-    this.app.post('/publish/:module/:version', this.publish.bind(this));
-    next();
-};
+    app.get('/install/:module/:version?', this.install.bind(this));
+    app.get('/search/:module?', this.search.bind(this));
+    app.post('/publish/:module/:version', this.publish.bind(this));
+    
+}
 /**
  * 得到当前版本，如果不指定版本，默认用最新的版本
  * @param  {[type]} version    [description]
@@ -100,7 +80,7 @@ Router.prototype.install = function(req, res, next) {
     }
     //文件名加上时间戳，防止并发重名
     file = [moduleName, version, Date.now()].join('-');
-    fullName = path.join(output, file + '.zip');
+    fullName = path.join(this.output, file + '.zip');
 
     archiverFile = fs.createWriteStream(fullName);
 
@@ -175,7 +155,7 @@ Router.prototype.search = function(req, res, next) {
     // this.makeFolder(modulePath, 'modules');
 
     if (!fs.existsSync(modulePath)) {
-        return res.send([]);
+        return res.send('module error.');
     }
 
     fs.readdir(modulePath, function(error, files) {
@@ -185,7 +165,7 @@ Router.prototype.search = function(req, res, next) {
         var fileSize = files.length;
         // console.log(files);
         if (!fileSize) {
-            return res.send([]);
+            return res.send('file size error.');
         }
         files.forEach(function(file, index) {
             fs.stat(path.join(modulePath, file), function(error, stats) {
@@ -236,7 +216,7 @@ Router.prototype.makeFolder = function(filePath, start) {
 
 Router.prototype.publish = function(req, res, next) {
     var fileName = req.params.module + '-' + req.params.version + '.zip';
-    var filePath = path.join(output, fileName);
+    var filePath = path.join(this.output, fileName);
     var moduleRoot = this.moduleRoot;
     var extractPath = path.join(moduleRoot, req.params.module, req.params.version);
     var writeStream = fs.createWriteStream(filePath);
