@@ -12,11 +12,14 @@ function provide(app) {
                 fs.mkdir(output, function(error) {
                     if (error) {
                         next(new Error(error));
+                    } else {
+                        next();
                     }
                 });
+            } else {
+                next();
             }
         });
-        next();
     };    
 }
 
