@@ -6,10 +6,8 @@ var path = require('path'),
 
 function Router(app) {
 
-    // console.log('router');
     //tmp目录
     this.output = app.get('output');
-    console.log('output', this.output);
     //模块目录
     this.moduleRoot = path.join(app.get('assets'), 'modules');
 

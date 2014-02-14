@@ -8,7 +8,6 @@ function provide(app) {
 
     return function(res, req, next) {
         fs.exists(output, function(exist) {
-        // console.log('tmp', exist);
             if (!exist) {
                 fs.mkdir(output, function(error) {
                     if (error) {

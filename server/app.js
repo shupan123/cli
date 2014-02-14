@@ -26,12 +26,12 @@ app.use(provide(app));
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 
-new Router(app);
-
 // development only
 if ('development' == app.get('env')) {
   app.use(express.errorHandler());
 }
+
+new Router(app);
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));
