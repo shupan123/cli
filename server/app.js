@@ -5,7 +5,7 @@
 
 var express = require('express');
 var Router = require('./routes/index');
-var provide = require('./routes/provide');
+// var provide = require('./routes/provide');
 var http = require('http');
 var path = require('path');
 
@@ -22,7 +22,7 @@ app.use(express.logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.methodOverride());
-app.use(provide(app));
+// app.use(provide(app));
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 

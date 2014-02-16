@@ -1,5 +1,8 @@
 var path = require('path'),
     fs = require('fs'),
+    when = require('when'),
+    sequence = require('when/sequence'),
+    // nodefn = require('when/node/function'),
     archiver = require('archiver'),
     util = require('util'),
     unzip = require('unzip');
@@ -7,7 +10,7 @@ var path = require('path'),
 function Router(app) {
 
     //tmp目录
-    this.output = app.get('output');
+    this.output = path.resolve(__dirname, '../tmp');
     //模块目录
     this.moduleRoot = path.join(app.get('assets'), 'modules');
 
@@ -15,11 +18,55 @@ function Router(app) {
         res.render('index', {title: 'CLI'});
     });
 
+    this.createTmp(app).then(this.invokeRouter.bind(this, app), function(error) {
+        console.log(error.stack);
+    });
+}
+Router.prototype.createTmp = function(app) {
+    
+    function invokeExists() {
+        var defer = when.defer();
+
+        fs.exists(this.output, function(exist) {
+
+            if (exist) {
+                this.invokeRouter(app);
+            } else {
+                defer.resolve();
+            }
+        }.bind(this));
+
+        return defer.promise;
+    }
+
+    function invokeMkdir() {
+        var defer = when.defer();
+
+        fs.mkdir(this.output, function(error) {
+
+            if (error) {
+                defer.reject(new Error(error));
+            } else {
+                defer.resolve('Create temp folder success.');
+            }
+        });
+
+        return defer.promise;
+    }
+
+    // nodefn.call(fs.mkdir, this.output); 和sequence结合起来用好像有问题，成功后走到错误里面
+
+    return sequence([invokeExists.bind(this), invokeMkdir.bind(this)]);
+};
+Router.prototype.invokeRouter = function(app) {
+
+    console.log('Invoke router');
+
     app.get('/install/:module/:version?', this.install.bind(this));
     app.get('/search/:module?', this.search.bind(this));
     app.post('/publish/:module/:version', this.publish.bind(this));
-    
-}
+
+};
 /**
  * 得到当前版本，如果不指定版本，默认用最新的版本
  * @param  {[type]} version    [description]
@@ -29,11 +76,40 @@ function Router(app) {
 Router.prototype.getVersion = function(version, moduleName) {
     var pathVersion = path.join(this.moduleRoot, moduleName);
 
+    function invokePath() {
+        var defer = when.defer();
+        fs.exists(pathVersion, function(exist) {
+            if (exist) {
+                defer.resolve();
+            } else {
+                defer.reject('Module can not exist.');
+            }
+        });
+        return defer.promise;
+    }
+    function readdir() {
+        var defer = when.defer();
+        fs.readdir(pathVersion, function(error) {
+            if (error) {
+                defer.reject(new Error('Version can not exist.'));
+            } else {
+                defer.resolve(versions);
+            }
+        });
+    }
+
+    // sequence([invokePath, readdir]);
+
+    // var defer = when.defer();
+
     if (!fs.existsSync(pathVersion)) {
         throw new Error('Module can not exist.');
     }
     var versions = fs.readdirSync(pathVersion);
 
+    
+};
+Router.prototype.judgeVersion = function(version, versions) {
     if (version) {
         if (versions.indexOf(version) > -1) {
             return version;
@@ -51,7 +127,7 @@ Router.prototype.getVersion = function(version, moduleName) {
             b = b.replace(/\./g, '');
             return b - a;
         });
-        console.log(versions);
+        // console.log(versions);
         return versions[0];
     }
 };
@@ -68,27 +144,30 @@ Router.prototype.install = function(req, res, next) {
         file, archiverFile, archive,
         fullName;
 
-    try {
-        version = this.getVersion(version, moduleName);
-    } catch (e) {
-        return res.send({error: e.message});
-        // console.log(e.message);
-        // return res.end();
-        // throw new Error(e);
-    }
-    //文件名加上时间戳，防止并发重名
-    file = [moduleName, version, Date.now()].join('-');
-    fullName = path.join(this.output, file + '.zip');
+    this.getVersion(version, moduleName)
+        .then(this.judgeVersion.bind(this, version))
+        .then(function(version) {
+            var file = [moduleName, version, Date.now()].join('-');
+            var fullName = path.join(this.output, file + '.zip');
 
-    archiverFile = fs.createWriteStream(fullName);
+            this.invokeInstall.call(this, fullName, req, res);
+
+        }.bind(this), function(error) {
+            res.send({error: e.message});
+        });
+    
+};
+Router.prototype.invokeInstall = function(fullName, req, res) {
+    var archiverFile = fs.createWriteStream(fullName);
+
+    var defer = when.defer();
 
     //close事件表示压缩完毕
     archiverFile.on('close', function() {
-        var fileStream;
 
         console.log('archiver has been finalized and the output file descriptor has closed.');
         
-        fileStream = fs.createReadStream(fullName);
+        var fileStream = fs.createReadStream(fullName);
 
         //设置下载头文件
         res.set('Content-Type', 'application/octet-stream');
@@ -103,7 +182,9 @@ Router.prototype.install = function(req, res, next) {
         fileStream.on('end', function() {
             fs.unlink(fullName, function(error) {
                 if (error) {
-                    next(new Error(error));
+                    defer.reject(new Error(error));
+                } else {
+                    defer.resolve('Download success.');
                 }
             });
         });
@@ -119,8 +200,8 @@ Router.prototype.install = function(req, res, next) {
     });
 
     archive = archiver('zip');
-    archive.on('error', function(err) {
-        next(new Error(err));
+    archive.on('error', function(error) {
+        defer.reject(new Error(error));
     });
     archive.pipe(archiverFile);
     //模块版本下的所以文件通过zip压缩
@@ -129,13 +210,10 @@ Router.prototype.install = function(req, res, next) {
         cwd: path.join(this.moduleRoot, moduleName, version),
         src: ['**']
     }]);
-    archive.finalize(function(err, bytes) {
+    archive.finalize(function(error, bytes) {
 
-        if (err) {
-            next(new Error(err));
-        }
-
-        console.log(bytes + ' total bytes');
+        defer.reject(new error(error));
+        // console.log(bytes + ' total bytes');
         
     });
 };
@@ -193,9 +271,9 @@ Router.prototype.search = function(req, res, next) {
 };
 
 Router.prototype.makeFolder = function(filePath, start) {
-    var filePaths = filePath.split('/');
-    var startIndex = filePaths.indexOf(start);
-    var loop = startIndex + 1;
+    var filePaths = filePath.split('/'),
+        startIndex = filePaths.indexOf(start),
+        loop = startInex + 1;
 
     function make() {
         var currentPath = filePaths.slice(0, loop + 1).join('/');
@@ -213,21 +291,25 @@ Router.prototype.makeFolder = function(filePath, start) {
 };
 
 Router.prototype.publish = function(req, res, next) {
-    var fileName = req.params.module + '-' + req.params.version + '.zip';
-    var filePath = path.join(this.output, fileName);
-    var moduleRoot = this.moduleRoot;
-    var extractPath = path.join(moduleRoot, req.params.module, req.params.version);
-    var writeStream = fs.createWriteStream(filePath);
-    var self = this;
+
+    var params = req.params,
+        fileName = params.module + '-' + params.version + '.zip',
+        filePath = path.join(this.output, fileName),
+        moduleRoot = this.moduleRoot,
+        extractPath = path.join(moduleRoot, module, version),
+        writeStream = fs.createWriteStream(filePath),
+        self = this;
 
     req.pipe(writeStream);
     req.on('end', function() {
 
+        var readStream, extract;
+
         self.makeFolder(extractPath, 'modules');
 
-        var readStream = fs.createReadStream(filePath);
+        readStream = fs.createReadStream(filePath);
 
-        var extract = unzip.Extract({ path: extractPath });
+        extract = unzip.Extract({ path: extractPath });
         extract.on('error', function(error) {  
             //解压异常处理
             next(new Error(error)); 

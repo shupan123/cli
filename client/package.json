@@ -1,0 +1,7 @@
+{
+  "name": "cli-client",
+  "version": "0.1.0",
+  "dependencies": {
+    "when": "~2.8.0"
+  }
+}

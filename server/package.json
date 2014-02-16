@@ -1,5 +1,5 @@
 {
-  "name": "application-name",
+  "name": "cli-server",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -9,6 +9,7 @@
     "express": "3.4.8",
     "jade": "*",
     "archiver": "~0.5.2",
-    "unzip": "~0.1.9"
+    "unzip": "~0.1.9",
+    "when": "~2.8.0"
   }
 }
