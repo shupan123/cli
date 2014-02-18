@@ -153,18 +153,19 @@ Router.prototype.search = function(req, res, next) {
     // this.makeFolder(modulePath, 'modules');
 
     if (!fs.existsSync(modulePath)) {
-        return res.send('module error.');
+        return res.send({error: modulePath + ' not exist.'});
     }
 
     fs.readdir(modulePath, function(error, files) {
         if (error) {
-            next(new Error(error));
+            return next(new Error(error));
         }
         var fileSize = files.length;
         // console.log(files);
         if (!fileSize) {
-            return res.send('file size error.');
+            return res.send({error: 'file size error.'});
         }
+
         files.forEach(function(file, index) {
             fs.stat(path.join(modulePath, file), function(error, stats) {
                 if (error) {

@@ -57,6 +57,8 @@ Client.prototype.search = function(callback) {
             var buf = Buffer.concat(chunks, size);
             var result = JSON.parse(buf.toString());
 
+            
+
             if (Array.isArray(result)) {
                 if (result.length) {
                     console.log(result.join(', '));
@@ -64,8 +66,12 @@ Client.prototype.search = function(callback) {
                     console.log('No data.');
                 }
             } else {
-                var key = Object.keys(result)[0];
-                console.log(key, ':', result[key].join(', '));
+                if (result.error) {
+                    console.log(result.error);
+                } else {
+                    var key = Object.keys(result)[0];
+                    console.log(key, ':', result[key].join(', '));
+                } 
             }
 
             typeof callback == 'function' && callback(result);
